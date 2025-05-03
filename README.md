@@ -3,7 +3,7 @@
 A feedback-driven exam analysis platform empowering professors and students with actionable insights.
 
 ## Overview
-Smart Assess addresses the gap in detailed feedback after exams. Traditional grading often leaves professors unaware of specific topics where students struggle, while students receive little guidance on areas for improvement. Our platform transforms exams from mere assessments into learning opportunities by providing granular error patterns and targeted study references.
+Smart Assess addresses the gap in detailed feedback after exams. Traditional grading often leaves professors unaware of specific topics where students struggle, while students receive little guidance on areas for improvement. Our platform transforms exams from mere assessments into learning opportunities by providing granular error patterns.
 
 ## Features
 - **Exam Upload & Management**  
@@ -12,8 +12,6 @@ Smart Assess addresses the gap in detailed feedback after exams. Traditional gra
   Leverages AI to detect common error patterns across student submissions.  
 - **Detailed Reports**  
   Generates per-student and overall class reports highlighting strengths, weaknesses, and trending misconceptions.  
-- **Resource Recommendations**  
-  Provides curated study materials and references based on identified error topics.  
 - **PDF Highlighting**  
   Visualizes student mistakes directly on exam PDFs for quick review.
 
@@ -21,18 +19,31 @@ Smart Assess addresses the gap in detailed feedback after exams. Traditional gra
 Smart Assess integrates advanced AI models to:
 - **Extract Answers** from scanned or digital exam submissions using Google’s Gemini (Vision) API.  
 - **Compare Responses** against the answer key to pinpoint exact locations and types of errors.  
-- **Cluster Error Patterns** with unsupervised learning, revealing the most frequent misconceptions.  
-- **Recommend Resources** by mapping error clusters to a curated knowledge base of study materials.
+- **Cluster Error Patterns** revealing the most frequent misconceptions.  
 
-## Installation and Setup
+## Installation
+
+### Prerequisites
+
+- Python 3.7 or higher
+- pip (Python package manager)
+- Git
+
+### Setup
+
 1. **Clone the Repository**  
    ```bash
    git clone https://github.com/aircode610/Smart-Assess.git
    cd Smart-Assess
    ```
-2. **Create a Virtual Environment**  
-   ```bash
-   python3 -m venv venv
+2. Create and activate a virtual environment (recommended):
+   ```
+   python -m venv venv
+   
+   # On Windows:
+   venv\Scripts\activate
+   
+   # On macOS/Linux:
    source venv/bin/activate
    ```
 3. **Environment Variables**  
@@ -50,21 +61,17 @@ export FLASK_APP=run.py
 export FLASK_ENV=development
 flask run
 ```
-Open your browser at `http://localhost:5000`.
+Open your browser at `[http://localhost:5000](http://127.0.0.1:5000/)`.
 
 ## Usage Guide
 1. **Home Page**  
-   Navigate to upload new exams or view existing ones.  
+   Navigate to upload new exams or view existing ones or view analysis.  
 2. **Exam Management**  
    - **Upload**: Submit PDF exam papers and their answer keys.  
-   - **List**: See all previously uploaded exams.  
-   - **View**: Inspect individual exam details and summary statistics.  
+   - **List**: See all previously uploaded exams and create analysis.  
 3. **Analysis**  
-   - Click “Analyze” on an exam to trigger AI processing.  
    - Review error-pattern clusters and individual student reports.  
-   - Download detailed PDF reports with highlighted corrections.  
-4. **Resources**  
-   Access suggested readings and practice resources aligned with the identified weak topics.
+   - Download detailed PDF reports with highlighted corrections and recommended subjects to improve.  
 
 ## Project Structure
 ```
@@ -88,8 +95,8 @@ Smart Assess/
 │   │   ├── index.html           # Home page
 │   │   ├── exams/               # Exam-related templates
 │   │   │   ├── upload.html      # Exam upload form
-│   │   │   ├── list.html        # List all exams
-│   │   │   └── view.html        # View exam details
+│   │   │   └── list.html        # List all exams
+│   │   │   
 │   │   └── analysis/            # Analysis templates
 │   │       ├── results.html     # Analysis results
 │   │       ├── report.html      # Detailed reports
@@ -126,8 +133,6 @@ Smart Assess/
 ## Technical Implementation
 - **Flask** for web framework and routing  
 - **Google Gemini (Vision) API** for OCR and answer extraction  
-- **Pandas & NumPy** for data manipulation and error clustering  
-- **Scikit-learn** for clustering error patterns  
 - **Jinja2** templating for dynamic HTML reports  
 - **PyPDF2** (or similar) for PDF highlighting  
 
