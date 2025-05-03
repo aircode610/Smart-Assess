@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}ExamInsight - Upload Files{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">
+                <h2>Upload Files</h2>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="exam-tab" data-bs-toggle="tab" data-bs-target="#exam" type="button" role="tab">Upload Exam</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="answer-tab" data-bs-toggle="tab" data-bs-target="#answer" type="button" role="tab">Upload Answer Key</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="myTabContent">
+                    <!-- Exam Upload Form -->
+                    <div class="tab-pane fade show active" id="exam" role="tabpanel">
+                        <form method="POST" action="{{ url_for('exams.upload') }}" enctype="multipart/form-data" class="mb-3">
+                            <input type="hidden" name="file_type" value="exam">
+                            <div class="mb-3">
+                                <label for="exam_id" class="form-label">Exam ID</label>
+                                <input type="text" class="form-control" id="exam_id" name="exam_id" required placeholder="e.g., math_midterm_2025">
+                                <div class="form-text">Use a unique identifier for this exam.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="exam_file" class="form-label">Exam File</label>
+                                <input type="file" class="form-control" id="exam_file" name="file" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <div class="form-text">Upload a clear image or PDF of the student exam (JPG, JPEG, PNG, PDF). PDF files can contain multiple pages for complete exams.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload Exam</button>
+                        </form>
+                    </div>
+
+                    <!-- Answer Key Upload Form -->
+                    <div class="tab-pane fade" id="answer" role="tabpanel">
+                        <form method="POST" action="{{ url_for('exams.upload') }}" enctype="multipart/form-data" class="mb-3">
+                            <input type="hidden" name="file_type" value="answer">
+                            <div class="mb-3">
+                                <label for="answer_exam_id" class="form-label">Exam ID</label>
+                                <input type="text" class="form-control" id="answer_exam_id" name="exam_id" required placeholder="e.g., math_midterm_2025">
+                                <div class="form-text">Use the same ID as the corresponding exams.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="answer_file" class="form-label">Answer Key File</label>
+                                <input type="file" class="form-control" id="answer_file" name="file" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <div class="form-text">Upload a clear image or PDF of the answer key (JPG, JPEG, PNG, PDF). PDF files can contain multiple pages for complete answer keys.</div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload Answer Key</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

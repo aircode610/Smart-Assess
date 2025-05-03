@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Smart Assess - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2 text-center">
+        <h1 class="display-4 mb-4">Welcome to Smart Assess</h1>
+        <p class="lead">
+            Smart Assess is an AI-powered exam analysis tool that helps teachers
+            evaluate student performance and identify learning patterns.
+        </p>
+
+        <div class="mt-5">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-4 h-100">
+                        <div class="card-body text-center d-flex flex-column">
+                            <h5 class="card-title">Upload Exams</h5>
+                            <p class="card-text flex-grow-1">Upload student exams and answer keys for processing.</p>
+                            <div class="mt-auto">
+                                <a href="{{ url_for('exams.upload') }}" class="btn btn-primary">Upload Files</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-4 h-100">
+                        <div class="card-body text-center d-flex flex-column">
+                            <h5 class="card-title">Manage Exams</h5>
+                            <p class="card-text flex-grow-1">View and manage uploaded exam files.</p>
+                            <div class="mt-auto">
+                                <a href="{{ url_for('exams.list') }}" class="btn btn-primary">View Exams</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card mb-4 h-100">
+                        <div class="card-body text-center d-flex flex-column">
+                            <h5 class="card-title">Analysis Results</h5>
+                            <p class="card-text flex-grow-1">View analysis results and reports.</p>
+                            <div class="mt-auto">
+                                <a href="{{ url_for('analysis.list') }}" class="btn btn-primary">View Results</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

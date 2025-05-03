@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}ExamInsight - Exam List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>Uploaded Exams</h2>
+        <a href="{{ url_for('exams.upload') }}" class="btn btn-primary">Upload New</a>
+    </div>
+    <div class="card-body">
+        {% if exams %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Upload Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exam in exams %}
+                    <tr>
+                        <td>{{ exam }}</td>
+                        <td>{{ (exam|filesize|default('Unknown')) }}</td>
+                        <td>{{ (exam|filedate|default('Unknown')) }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+{#                                <a href="{{ url_for('exams.view', filename=exam) }}" class="btn btn-sm btn-info">View</a>#}
+                                <button type="button" class="btn btn-sm btn-success" 
+                                        onclick="selectExam('{{ exam }}')">Select</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Process Form -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h3>Process Selected Exams</h3>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('analysis.process') }}" method="POST">
+                        <div class="mb-3">
+                            <label for="exam_id" class="form-label">Exam ID</label>
+                            <input type="text" class="form-control" id="exam_id" name="exam_id" required>
+                            <div class="form-text">Enter a unique identifier for this batch of exams.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Selected Exams</label>
+                            <div id="selected-exams-container" class="border rounded p-3 mb-2">
+                                <p id="no-exams-selected" class="text-muted mb-0">No exams selected</p>
+                                <ul id="selected-exams-list" class="list-group list-group-flush d-none">
+                                    <!-- Selected exams will be added here via JavaScript -->
+                                </ul>
+                            </div>
+                            <div id="exam-files-container">
+                                <!-- Hidden inputs for selected exams -->
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="answer_key_file" class="form-label">Answer Key</label>
+                            <select class="form-select" id="answer_key_file" name="answer_key_file" required>
+                                <option value="">Select an answer key file</option>
+                                {% for key_file in answer_keys %}
+                                <option value="{{ key_file }}">{{ key_file }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" id="process-btn" disabled>
+                            Process Exams
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No exams have been uploaded yet. 
+                <a href="{{ url_for('exams.upload') }}">Upload exams</a> to get started.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // JavaScript for handling exam selection
+    const selectedExams = new Set();
+    const noExamsSelectedMsg = document.getElementById('no-exams-selected');
+    const selectedExamsList = document.getElementById('selected-exams-list');
+    const examFilesContainer = document.getElementById('exam-files-container');
+    const processBtn = document.getElementById('process-btn');
+    
+    function selectExam(filename) {
+        if (selectedExams.has(filename)) {
+            return; // Already selected
+        }
+        
+        // Add to selected set
+        selectedExams.add(filename);
+        
+        // Update UI
+        if (selectedExams.size === 1) {
+            noExamsSelectedMsg.classList.add('d-none');
+            selectedExamsList.classList.remove('d-none');
+        }
+        
+        // Add to list
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.textContent = filename;
+        
+        // Add remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-sm btn-danger';
+        removeBtn.textContent = 'Remove';
+        removeBtn.onclick = function() {
+            selectedExams.delete(filename);
+            li.remove();
+            
+            // Remove hidden input
+            const input = document.getElementById(`exam-file-${filename.replace(/\./g, '-')}`);
+            if (input) input.remove();
+            
+            // Update UI if no exams selected
+            if (selectedExams.size === 0) {
+                noExamsSelectedMsg.classList.remove('d-none');
+                selectedExamsList.classList.add('d-none');
+                processBtn.disabled = true;
+            }
+        };
+        
+        li.appendChild(removeBtn);
+        selectedExamsList.appendChild(li);
+        
+        // Add hidden input for form submission
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'exam_files';
+        input.value = filename;
+        input.id = `exam-file-${filename.replace(/\./g, '-')}`;
+        examFilesContainer.appendChild(input);
+        
+        // Enable process button
+        processBtn.disabled = false;
+    }
+</script>
+{% endblock %}

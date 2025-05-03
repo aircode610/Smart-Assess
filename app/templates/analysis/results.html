@@ -1,0 +1,508 @@
+{% extends 'base.html' %}
+
+{% block title %}Smart Assess - {{ exam_id }} Results{% endblock %}
+
+{% block extra_css %}
+<style>
+    .difficulty-easy {
+        background-color: #28a745;
+    }
+    .difficulty-medium {
+        background-color: #ffc107;
+    }
+    .difficulty-hard {
+        background-color: #dc3545;
+    }
+
+    .chart-container {
+        height: 400px;
+        margin-bottom: 2rem;
+    }
+
+    .pdf-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    .toolbar button {
+        margin-right: 10px;
+    }
+
+    .page-info {
+        margin: 0 15px;
+    }
+
+    .canvas-container {
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        margin-bottom: 20px;
+        min-height: 500px;
+    }
+
+    #pdf-canvas, #key-pdf-canvas {
+        display: block;
+    }
+
+    .zoom-controls {
+        margin-left: auto;
+    }
+
+    .full-opacity {
+        opacity: 1 !important;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>{{ exam_id }} Analysis Results</h2>
+        <div>
+            <a href="{{ url_for('analysis.report', exam_id=exam_id) }}" class="btn btn-primary">Detailed Report</a>
+            <a href="{{ url_for('analysis.list') }}" class="btn btn-secondary ms-2">Back to List</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="overview-tab" data-bs-toggle="tab"
+                        data-bs-target="#overview" type="button" role="tab">Overview</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="students-tab" data-bs-toggle="tab"
+                        data-bs-target="#students" type="button" role="tab">Students</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="questions-tab" data-bs-toggle="tab"
+                        data-bs-target="#questions" type="button" role="tab">Questions</button>
+            </li>
+            {% if answer_key_file %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="answer-key-tab" data-bs-toggle="tab"
+                        data-bs-target="#answer-key-tab-pane" type="button" role="tab">Answer Key</button>
+            </li>
+            {% endif %}
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <!-- Overview Tab -->
+            <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4>Exam Summary</h4>
+                            </div>
+                            <div class="card-body">
+                                <dl class="row">
+                                    <dt class="col-sm-4">Exam ID:</dt>
+                                    <dd class="col-sm-8">{{ exam_id }}</dd>
+
+                                    <dt class="col-sm-4">Total Students:</dt>
+                                    <dd class="col-sm-8">{{ students|length }}</dd>
+
+                                    <dt class="col-sm-4">Questions:</dt>
+                                    <dd class="col-sm-8">{{ analysis.questions|length }}</dd>
+
+                                    <dt class="col-sm-4">Average Score:</dt>
+                                    <dd class="col-sm-8">
+                                        {% set avg_score = (students|sum(attribute='score') / students|length)|round(1) %}
+                                        {{ avg_score }}%
+                                    </dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h4>Performance Distribution</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <!-- Chart will be rendered here using JavaScript -->
+                                    <canvas id="scoreDistributionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Question Difficulty</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <!-- Chart will be rendered here using JavaScript -->
+                            <canvas id="difficultyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students Tab -->
+            <div class="tab-pane fade" id="students" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Student Performance</h4>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Student Name</th>
+                                    <th>Student ID</th>
+                                    <th>Score</th>
+                                    <th>Performance</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>{{ student.student_name }}</td>
+                                    <td>{{ student.student_id }}</td>
+                                    <td>{{ student.score|round(1) }}%</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar
+                                                {% if student.score >= 80 %}bg-success
+                                                {% elif student.score >= 60 %}bg-info
+                                                {% elif student.score >= 40 %}bg-warning
+                                                {% else %}bg-danger{% endif %}"
+                                                role="progressbar" style="width: {{ student.score }}%"
+                                                aria-valuenow="{{ student.score }}" aria-valuemin="0" aria-valuemax="100">
+                                                {{ student.score|round(1) }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('analysis.student_detail', student_id=student.student_id, exam_id=exam_id) }}"
+                                           class="btn btn-sm btn-primary">View Details</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions Tab -->
+            <div class="tab-pane fade" id="questions" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Question Analysis</h4>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Question</th>
+                                    <th>Difficulty</th>
+                                    <th>Common Errors</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for question, difficulty in analysis.question_difficulty.items() %}
+                                {% set difficulty_percent = difficulty * 100 %}
+                                {% if difficulty_percent < 30 %}
+                                    {% set difficulty_level = "easy" %}
+                                {% elif difficulty_percent < 70 %}
+                                    {% set difficulty_level = "medium" %}
+                                {% else %}
+                                    {% set difficulty_level = "hard" %}
+                                {% endif %}
+                                <tr>
+                                    <td>{{ question }}</td>
+                                    <td>
+                                        <span class="badge difficulty-{{ difficulty_level }} p-2">
+                                            {{ difficulty_percent|round(0)|int }}% - {{ difficulty_level|capitalize }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if question in analysis.error_patterns %}
+                                            {% for error_type, count in analysis.error_patterns[question].items() %}
+                                                <span class="badge bg-secondary me-1 mb-1">
+                                                    {{ error_type }}: {{ count }}
+                                                </span>
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">No common errors</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Answer Key Tab -->
+            {% if answer_key_file %}
+            <div class="tab-pane fade" id="answer-key-tab-pane" role="tabpanel">
+                <div class="pdf-container">
+                    <div class="toolbar">
+                        <button id="key-prev" class="btn btn-sm btn-primary">
+                            <i class="fas fa-arrow-left"></i> Previous
+                        </button>
+                        <button id="key-next" class="btn btn-sm btn-primary">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <span class="page-info">
+                            Page: <span id="key_page_num">1</span> / <span id="key_page_count">-</span>
+                        </span>
+
+                        <div class="zoom-controls">
+                            <button id="key-zoom-out" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <span id="key-zoom-level" class="mx-2">100%</span>
+                            <button id="key-zoom-in" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="canvas-container">
+                        <canvas id="key-pdf-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% if answer_key_file %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
+{% endif %}
+<script>
+    // Data from the server
+    const questionDifficulty = {{ analysis.question_difficulty|tojson }};
+    const students = {{ students|tojson }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Question difficulty chart
+        const questions = Object.keys(questionDifficulty);
+
+        // Sort questions numerically
+        questions.sort((a, b) => {
+            // Extract numeric part from question numbers
+            const numA = parseInt(a.replace(/\D/g, ''));
+            const numB = parseInt(b.replace(/\D/g, ''));
+            return numA - numB;
+        });
+
+        const difficulties = questions.map(q => questionDifficulty[q] * 100); // Convert to 0-100 scale
+
+        const difficultyColors = difficulties.map(d => {
+            if (d < 30) return '#28a745';  // Easy - green
+            if (d < 70) return '#ffc107';  // Medium - yellow
+            return '#dc3545';  // Hard - red
+        });
+
+        const difficultyCtx = document.getElementById('difficultyChart').getContext('2d');
+        new Chart(difficultyCtx, {
+            type: 'bar',
+            data: {
+                labels: questions,
+                datasets: [{
+                    label: 'Question Difficulty',
+                    data: difficulties,
+                    backgroundColor: difficultyColors,
+                    borderColor: difficultyColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Difficulty (0 = Easy, 100 = Hard)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Question Number'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Score distribution chart
+        const scoreDistribution = {
+            '0-20': 0,
+            '21-40': 0,
+            '41-60': 0,
+            '61-80': 0,
+            '81-100': 0
+        };
+
+        students.forEach(student => {
+            const score = student.score;
+            if (score <= 20) scoreDistribution['0-20']++;
+            else if (score <= 40) scoreDistribution['21-40']++;
+            else if (score <= 60) scoreDistribution['41-60']++;
+            else if (score <= 80) scoreDistribution['61-80']++;
+            else scoreDistribution['81-100']++;
+        });
+
+        const distColors = [
+            '#dc3545',  // 0-20: Red
+            '#ffc107',  // 21-40: Yellow
+            '#17a2b8',  // 41-60: Cyan
+            '#28a745',  // 61-80: Green
+            '#007bff'   // 81-100: Blue
+        ];
+
+        const scoreDistCtx = document.getElementById('scoreDistributionChart').getContext('2d');
+        new Chart(scoreDistCtx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(scoreDistribution),
+                datasets: [{
+                    data: Object.values(scoreDistribution),
+                    backgroundColor: distColors,
+                    borderColor: distColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Student Score Distribution (%)'
+                    }
+                }
+            }
+        });
+    });
+
+    {% if answer_key_file %}
+    // PDF.js setup for answer key
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.worker.min.js';
+
+    const keyUrl = '{{ url_for("static", filename="uploads/answers/" + answer_key_file) }}';
+    let keyPdfDoc = null;
+    let keyPageNum = 1;
+    let keyPageRendering = false;
+    let keyPageNumPending = null;
+    let keyScale = 1.5;
+    let keyCanvas = document.getElementById('key-pdf-canvas');
+    let keyCtx = keyCanvas.getContext('2d');
+
+    // Load the answer key PDF
+    pdfjsLib.getDocument(keyUrl).promise.then(function(doc) {
+        keyPdfDoc = doc;
+        document.getElementById('key_page_count').textContent = doc.numPages;
+
+        // Initial render
+        renderKeyPage(keyPageNum);
+    }).catch(function(error) {
+        console.error('Error loading answer key PDF:', error);
+        document.getElementById('key-pdf-canvas').innerHTML =
+            '<div class="alert alert-danger">Error loading PDF: ' + error.message + '</div>';
+    });
+
+    function renderKeyPage(num) {
+        keyPageRendering = true;
+
+        // Update UI
+        document.getElementById('key_page_num').textContent = num;
+
+        // Get the page
+        keyPdfDoc.getPage(num).then(function(page) {
+            const viewport = page.getViewport({scale: keyScale});
+            keyCanvas.height = viewport.height;
+            keyCanvas.width = viewport.width;
+
+            // Render PDF page
+            const renderContext = {
+                canvasContext: keyCtx,
+                viewport: viewport
+            };
+
+            const renderTask = page.render(renderContext);
+
+            renderTask.promise.then(function() {
+                keyPageRendering = false;
+
+                // Update zoom level display
+                document.getElementById('key-zoom-level').textContent = Math.round(keyScale * 100) + '%';
+
+                if (keyPageNumPending !== null) {
+                    renderKeyPage(keyPageNumPending);
+                    keyPageNumPending = null;
+                }
+            });
+        }).catch(function(error) {
+            console.error('Error rendering page:', error);
+        });
+    }
+
+    function queueRenderKeyPage(num) {
+        if (keyPageRendering) {
+            keyPageNumPending = num;
+        } else {
+            renderKeyPage(num);
+        }
+    }
+
+    // Button event listeners for answer key PDF
+    document.getElementById('key-prev').addEventListener('click', function() {
+        if (keyPageNum <= 1) return;
+        keyPageNum--;
+        queueRenderKeyPage(keyPageNum);
+    });
+
+    document.getElementById('key-next').addEventListener('click', function() {
+        if (keyPageNum >= keyPdfDoc.numPages) return;
+        keyPageNum++;
+        queueRenderKeyPage(keyPageNum);
+    });
+
+    document.getElementById('key-zoom-in').addEventListener('click', function() {
+        if (keyScale >= 3) return; // Maximum zoom
+        keyScale += 0.25;
+        renderKeyPage(keyPageNum);
+    });
+
+    document.getElementById('key-zoom-out').addEventListener('click', function() {
+        if (keyScale <= 0.5) return; // Minimum zoom
+        keyScale -= 0.25;
+        renderKeyPage(keyPageNum);
+    });
+    {% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+
+{% block title %}Smart Assess - View Exam{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pdf-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    .toolbar button {
+        margin-right: 10px;
+    }
+
+    .page-info {
+        margin: 0 15px;
+    }
+
+    .canvas-container {
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    #pdf-canvas {
+        display: block;
+    }
+
+    .zoom-controls {
+        margin-left: auto;
+    }
+
+    .file-info dt {
+        font-weight: bold;
+    }
+
+    .file-info dd {
+        margin-bottom: 10px;
+    }
+
+    .highlight-legend {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        border-radius: 3px;
+    }
+
+    .incorrect-answer {
+        background-color: rgba(255, 0, 0, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>Exam File: {{ filename }}</h2>
+        <a href="{{ url_for('exams.list') }}" class="btn btn-secondary">Back to List</a>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="mb-3">
+                    <h4>Preview</h4>
+                    <div class="exam-preview">
+                        {% if filename.lower().endswith('.pdf') %}
+                        <div class="pdf-container">
+                            <div class="toolbar">
+                                <button id="prev" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-arrow-left"></i> Previous
+                                </button>
+                                <button id="next" class="btn btn-sm btn-primary">
+                                    Next <i class="fas fa-arrow-right"></i>
+                                </button>
+                                <span class="page-info">
+                                    Page: <span id="page_num">1</span> / <span id="page_count">-</span>
+                                </span>
+
+                                <div class="zoom-controls">
+                                    <button id="zoom-out" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-search-minus"></i>
+                                    </button>
+                                    <span id="zoom-level" class="mx-2">100%</span>
+                                    <button id="zoom-in" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-search-plus"></i>
+                                    </button>
+                                </div>
+
+                                <button id="toggle-highlights" class="btn btn-sm btn-success ms-3">
+                                    <i class="fas fa-highlighter"></i> Toggle Highlights
+                                </button>
+                            </div>
+
+                            <div class="canvas-container">
+                                <canvas id="pdf-canvas"></canvas>
+                            </div>
+
+                            <div class="highlight-legend">
+                                <h6>Highlight Legend:</h6>
+                                <div class="legend-item">
+                                    <div class="legend-color incorrect-answer"></div>
+                                    <span>Incorrect Answer</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <img src="{{ url_for('static', filename='uploads/exams/' + filename) }}"
+                             alt="Exam preview" class="img-fluid border rounded">
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>File Information</h4>
+                    </div>
+                    <div class="card-body">
+                        <dl class="file-info">
+                            <dt>Filename:</dt>
+                            <dd>{{ filename }}</dd>
+
+                            <dt>File Size:</dt>
+                            <dd>{{ (filename|filesize|default('Unknown')) }}</dd>
+
+                            <dt>Uploaded:</dt>
+                            <dd>{{ (filename|filedate|default('Unknown')) }}</dd>
+
+                            <dt>Type:</dt>
+                            <dd>{{ filename.split('.')[-1].upper() }}</dd>
+
+                            {% if filename.lower().endswith('.pdf') %}
+                            <dt>Pages:</dt>
+                            <dd id="pdf-page-count">Loading...</dd>
+                            {% endif %}
+                        </dl>
+
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('static', filename='uploads/exams/' + filename) }}"
+                               class="btn btn-primary" download>
+                                <i class="fas fa-download"></i> Download
+                            </a>
+
+                            <button type="button" class="btn btn-success"
+                                    onclick="window.location.href='{{ url_for('exams.list') }}?select={{ filename }}'">
+                                <i class="fas fa-check-circle"></i> Select for Processing
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {% if answer_locations and answer_locations|length > 0 %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h4>Answer Information</h4>
+                    </div>
+                    <div class="card-body">
+                        <p>This exam contains {{ answer_locations|length }} marked answers.</p>
+                        <button id="jump-to-first-error" class="btn btn-danger">
+                            <i class="fas fa-exclamation-triangle"></i> Jump to First Error
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if filename.lower().endswith('.pdf') %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
+<script>
+    // PDF.js setup
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.worker.min.js';
+
+    const url = '{{ url_for("static", filename="uploads/exams/" + filename) }}';
+    let pdfDoc = null;
+    let pageNum = 1;
+    let pageRendering = false;
+    let pageNumPending = null;
+    let scale = 1.5;
+    let canvas = document.getElementById('pdf-canvas');
+    let ctx = canvas.getContext('2d');
+    let showHighlights = true;
+
+    // Parse the answer locations passed from the server
+    const answerLocations = {{ answer_locations|safe if answer_locations else '[]' }};
+
+    // Load the PDF
+    pdfjsLib.getDocument(url).promise.then(function(doc) {
+        pdfDoc = doc;
+        document.getElementById('page_count').textContent = doc.numPages;
+        document.getElementById('pdf-page-count').textContent = doc.numPages;
+
+        // Initial render
+        renderPage(pageNum);
+    }).catch(function(error) {
+        console.error('Error loading PDF:', error);
+        document.getElementById('pdf-canvas').innerHTML =
+            '<div class="alert alert-danger">Error loading PDF. ' + error.message + '</div>';
+    });
+
+    function renderPage(num) {
+        pageRendering = true;
+
+        // Update UI
+        document.getElementById('page_num').textContent = num;
+
+        // Get the page
+        pdfDoc.getPage(num).then(function(page) {
+            const viewport = page.getViewport({scale: scale});
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            // Render PDF page
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            const renderTask = page.render(renderContext);
+
+            renderTask.promise.then(function() {
+                pageRendering = false;
+
+                // Draw highlights if enabled
+                if (showHighlights) {
+                    drawHighlights(num, viewport);
+                }
+
+                // Update zoom level display
+                document.getElementById('zoom-level').textContent = Math.round(scale * 100) + '%';
+
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+            });
+        }).catch(function(error) {
+            console.error('Error rendering page:', error);
+        });
+    }
+
+    function queueRenderPage(num) {
+        if (pageRendering) {
+            pageNumPending = num;
+        } else {
+            renderPage(num);
+        }
+    }
+
+    function drawHighlights(pageNumber, viewport) {
+        // Filter locations for current page
+        const pageLocations = answerLocations.filter(loc =>
+            loc.location && loc.location.page === pageNumber);
+
+        if (pageLocations.length === 0) return;
+
+        ctx.save();
+
+        // Draw each highlight
+        pageLocations.forEach(answer => {
+            // Set highlight style based on correctness
+            if (answer.is_correct === false) {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Semi-transparent red
+            } else if (answer.is_correct === true) {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.2)'; // Semi-transparent green
+            } else {
+                ctx.fillStyle = 'rgba(0, 0, 255, 0.2)'; // Semi-transparent blue
+            }
+
+            if (answer.location.bounding_box) {
+                const box = answer.location.bounding_box;
+
+                // Convert normalized coordinates to canvas coordinates
+                const x1 = box.x1 * viewport.width;
+                const y1 = box.y1 * viewport.height;
+                const width = (box.x2 - box.x1) * viewport.width;
+                const height = (box.y2 - box.y1) * viewport.height;
+
+                // Draw rectangle
+                ctx.fillRect(x1, y1, width, height);
+
+                // Draw border
+                ctx.strokeStyle = answer.is_correct === false ? 'red' :
+                                 (answer.is_correct === true ? 'green' : 'blue');
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1, y1, width, height);
+            }
+
+            // Draw text spans if available
+            if (answer.location.text_spans && answer.location.text_spans.length > 0) {
+                answer.location.text_spans.forEach(span => {
+                    if (span.bbox) {
+                        const box = span.bbox;
+
+                        // Convert normalized coordinates to canvas coordinates
+                        const x1 = box.x1 * viewport.width;
+                        const y1 = box.y1 * viewport.height;
+                        const width = (box.x2 - box.x1) * viewport.width;
+                        const height = (box.y2 - box.y1) * viewport.height;
+
+                        // Draw rectangle
+                        ctx.fillRect(x1, y1, width, height);
+
+                        // Draw border
+                        ctx.strokeRect(x1, y1, width, height);
+                    }
+                });
+            }
+        });
+
+        ctx.restore();
+    }
+
+    function jumpToFirstError() {
+        // Find first page with an incorrect answer
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+            const incorrectAnswers = answerLocations.filter(loc =>
+                loc.location && loc.location.page === i && loc.is_correct === false);
+
+            if (incorrectAnswers.length > 0) {
+                pageNum = i;
+                renderPage(pageNum);
+                return;
+            }
+        }
+    }
+
+    // Button event listeners
+    document.getElementById('prev').addEventListener('click', function() {
+        if (pageNum <= 1) return;
+        pageNum--;
+        queueRenderPage(pageNum);
+    });
+
+    document.getElementById('next').addEventListener('click', function() {
+        if (pageNum >= pdfDoc.numPages) return;
+        pageNum++;
+        queueRenderPage(pageNum);
+    });
+
+    document.getElementById('toggle-highlights').addEventListener('click', function() {
+        showHighlights = !showHighlights;
+        renderPage(pageNum);
+        this.innerHTML = showHighlights ?
+            '<i class="fas fa-highlighter"></i> Hide Highlights' :
+            '<i class="fas fa-highlighter"></i> Show Highlights';
+    });
+
+    document.getElementById('zoom-in').addEventListener('click', function() {
+        if (scale >= 3) return; // Maximum zoom
+        scale += 0.25;
+        renderPage(pageNum);
+    });
+
+    document.getElementById('zoom-out').addEventListener('click', function() {
+        if (scale <= 0.5) return; // Minimum zoom
+        scale -= 0.25;
+        renderPage(pageNum);
+    });
+
+    // Jump to first error if the button exists
+    const jumpButton = document.getElementById('jump-to-first-error');
+    if (jumpButton) {
+        jumpButton.addEventListener('click', jumpToFirstError);
+    }
+</script>
+{% endif %}
+{% endblock %}

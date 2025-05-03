@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}ExamInsight - Analysis Results{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Analysis Results</h2>
+    </div>
+    <div class="card-body">
+        {% if results %}
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Exam ID</th>
+                        <th>Students</th>
+                        <th>Questions</th>
+                        <th>Analysis Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>{{ result.exam_id }}</td>
+                        <td>{{ result.student_count }}</td>
+                        <td>{{ result.question_count }}</td>
+                        <td>{{ (result.filename|filedate|default('Unknown')) }}</td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('analysis.results', exam_id=result.exam_id) }}"
+                                   class="btn btn-sm btn-info">Results</a>
+                                <a href="{{ url_for('analysis.report', exam_id=result.exam_id) }}"
+                                   class="btn btn-sm btn-success">Report</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="alert alert-info">
+                No analysis results available yet.
+                <a href="{{ url_for('exams.list') }}">Process some exams</a> to generate results.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

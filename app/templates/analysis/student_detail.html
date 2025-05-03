@@ -1,0 +1,548 @@
+{% extends 'base.html' %}
+
+{% block title %}Smart Assess - Student Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pdf-container {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .toolbar {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 4px;
+    }
+
+    .toolbar button {
+        margin-right: 10px;
+    }
+
+    .page-info {
+        margin: 0 15px;
+    }
+
+    /* Updated iframe container for better sizing */
+    .iframe-container {
+        overflow: auto;
+        border: 1px solid #dee2e6;
+        margin-bottom: 20px;
+        height: 1000px; /* Increased standard height */
+        width: 100%;
+        position: relative;
+    }
+
+    #pdf-viewer {
+        width: 100%;
+        height: 100%;
+        border: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    .zoom-controls {
+        margin-left: auto;
+    }
+
+    .answer-card {
+        margin-bottom: 15px;
+        border-left-width: 4px;
+    }
+
+    .answer-card.correct {
+        border-left-color: #28a745;
+    }
+
+    .answer-card.incorrect {
+        border-left-color: #dc3545;
+    }
+
+    .answer-card.unknown {
+        border-left-color: #6c757d;
+    }
+
+    .error-badge {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.5rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .learning-topic {
+        display: inline-block;
+        font-size: 0.85rem;
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 0.25rem 0.5rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    .highlight-legend {
+        margin-top: 15px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .legend-color {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+        border-radius: 3px;
+    }
+
+    .legend-color.incorrect {
+        background-color: rgba(255, 0, 0, 0.3);
+        border: 1px solid red;
+    }
+
+    .legend-color.correct {
+        background-color: rgba(0, 255, 0, 0.2);
+        border: 1px solid green;
+    }
+
+    .answer-toggle {
+        cursor: pointer;
+    }
+
+    .btn-view-mode.active {
+        opacity: 1;
+        font-weight: bold;
+    }
+
+    .btn-view-mode {
+        opacity: 0.8;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>Student: {{ student.student_name }}</h2>
+        <div>
+            <a href="{{ url_for('analysis.results', exam_id=exam_id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Results
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h4>Student Information</h4>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Name:</dt>
+                            <dd class="col-sm-8">{{ student.student_name }}</dd>
+
+                            <dt class="col-sm-4">ID:</dt>
+                            <dd class="col-sm-8">{{ student.student_id }}</dd>
+
+                            <dt class="col-sm-4">Exam:</dt>
+                            <dd class="col-sm-8">{{ exam_id }}</dd>
+
+                            <dt class="col-sm-4">Score:</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge
+                                      {% if student.score >= 80 %}bg-success
+                                      {% elif student.score >= 60 %}bg-info
+                                      {% elif student.score >= 40 %}bg-warning
+                                      {% else %}bg-danger{% endif %} fs-6">
+                                    {{ student.score|round(1) }}%
+                                </span>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Answers Summary</h4>
+                    </div>
+                    <div class="card-body">
+                        <p>
+                            <strong>Total Questions:</strong> {{ student.answers|length }}
+                        </p>
+
+                        {% set correct_count = student.answers|selectattr('is_correct', 'eq', true)|list|length %}
+                        {% set incorrect_count = student.answers|selectattr('is_correct', 'eq', false)|list|length %}
+                        {% set unknown_count = student.answers|length - correct_count - incorrect_count %}
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Correct: <strong class="text-success">{{ correct_count }}</strong></span>
+                            <span>Incorrect: <strong class="text-danger">{{ incorrect_count }}</strong></span>
+                            <span>Unmarked: <strong class="text-secondary">{{ unknown_count }}</strong></span>
+                        </div>
+
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar"
+                                 style="width: {{ (correct_count / student.answers|length * 100)|round }}%;"
+                                 aria-valuenow="{{ correct_count }}" aria-valuemin="0" aria-valuemax="{{ student.answers|length }}">
+                                {{ (correct_count / student.answers|length * 100)|round }}%
+                            </div>
+                            <div class="progress-bar bg-danger" role="progressbar"
+                                 style="width: {{ (incorrect_count / student.answers|length * 100)|round }}%;"
+                                 aria-valuenow="{{ incorrect_count }}" aria-valuemin="0" aria-valuemax="{{ student.answers|length }}">
+                                {{ (incorrect_count / student.answers|length * 100)|round }}%
+                            </div>
+                        </div>
+
+                        <h5 class="mt-4">Common Error Types:</h5>
+                        <ul class="list-group">
+                            {% set error_types = {} %}
+                            {% for answer in student.answers if answer.error_type %}
+                                {% if answer.error_type in error_types %}
+                                    {% set _ = error_types.update({answer.error_type: error_types[answer.error_type] + 1}) %}
+                                {% else %}
+                                    {% set _ = error_types.update({answer.error_type: 1}) %}
+                                {% endif %}
+                            {% endfor %}
+
+                            {% for error_type, count in error_types|dictsort(by='value', reverse=true) %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ error_type }}
+                                    <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                                </li>
+                            {% else %}
+                                <li class="list-group-item">No error patterns identified</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="answers-tab" data-bs-toggle="tab"
+                                data-bs-target="#answers-tab-pane" type="button" role="tab">
+                            Answers
+                        </button>
+                    </li>
+                    {% if exam_file %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="pdf-tab" data-bs-toggle="tab"
+                                data-bs-target="#pdf-tab-pane" type="button" role="tab">
+                            Exam PDF
+                        </button>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <div class="tab-content" id="myTabContent">
+                    <!-- Answers Tab -->
+                    <div class="tab-pane fade show active" id="answers-tab-pane" role="tabpanel" tabindex="0">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <span class="input-group-text">Filter</span>
+                                <select class="form-select" id="answer-filter">
+                                    <option value="all">All Answers</option>
+                                    <option value="correct">Correct Only</option>
+                                    <option value="incorrect">Incorrect Only</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- PDF Selection Form (if no PDF is selected) -->
+                        {% if not exam_file %}
+                        <div class="alert alert-warning mt-4 mb-4">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            No exam PDF file selected. Please select a PDF file to view with highlights.
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5>Select PDF File</h5>
+                            </div>
+                            <div class="card-body">
+                                <form method="GET" action="{{ url_for('analysis.select_exam_pdf', student_id=student.student_id, exam_id=exam_id) }}">
+                                    <div class="mb-3">
+                                        <label for="pdf_file" class="form-label">Select PDF File</label>
+                                        <select class="form-select" id="pdf_file" name="pdf_file" required>
+                                            <option value="">-- Select PDF File --</option>
+                                            {% for pdf in all_pdfs %}
+                                            <option value="{{ pdf }}">{{ pdf }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Use This PDF</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% for answer in student.answers|sort(attribute='question_number|int') %}
+                        <div class="card answer-card mb-3 {{ 'correct' if answer.is_correct else ('incorrect' if answer.is_correct == false else 'unknown') }}"
+                             data-status="{{ 'correct' if answer.is_correct else ('incorrect' if answer.is_correct == false else 'unknown') }}">
+                            <div class="card-header d-flex justify-content-between align-items-center answer-toggle"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#answer-{{ answer.question_number|replace('.', '-') }}">
+                                <h5 class="mb-0">
+                                    Question {{ answer.question_number }}
+                                    {% if answer.is_correct %}
+                                    <span class="badge bg-success">Correct</span>
+                                    {% elif answer.is_correct == false %}
+                                    <span class="badge bg-danger">Incorrect</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Not Evaluated</span>
+                                    {% endif %}
+                                </h5>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="collapse" id="answer-{{ answer.question_number|replace('.', '-') }}">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <h6>Student's Answer:</h6>
+                                            <div class="p-3 bg-light mb-3">
+                                                {{ answer.answer_text }}
+                                            </div>
+
+                                            {% if answer.is_correct == false %}
+                                                <h6>Evaluation:</h6>
+                                                <p>{{ answer.evaluation_reason }}</p>
+
+                                                {% if answer.error_type %}
+                                                <div class="mb-3">
+                                                    <span class="badge bg-danger error-badge">
+                                                        Error Type: {{ answer.error_type }}
+                                                    </span>
+
+                                                    {% if answer.misconception %}
+                                                    <span class="badge bg-warning error-badge">
+                                                        Misconception: {{ answer.misconception }}
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                                {% endif %}
+
+                                                {% if answer.reference_to_answer %}
+                                                <div class="mb-3">
+                                                    <h6>Reference to Correct Answer:</h6>
+                                                    <p>{{ answer.reference_to_answer }}</p>
+                                                </div>
+                                                {% endif %}
+
+                                                {% if answer.learning_topics and answer.learning_topics|length > 0 %}
+                                                <div class="mb-3">
+                                                    <h6>Suggested Learning Topics:</h6>
+                                                    <div>
+                                                        {% for topic in answer.learning_topics %}
+                                                        <span class="learning-topic">
+                                                            <i class="fas fa-book-open me-1"></i> {{ topic }}
+                                                        </span>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            {% elif answer.is_correct %}
+                                                <h6>Evaluation:</h6>
+                                                <p class="text-success">{{ answer.evaluation_reason }}</p>
+                                            {% endif %}
+
+                                            <div class="mt-3">
+                                                <h6>Answer Location:</h6>
+                                                <p>
+                                                    Page: {{ answer.location.page if answer.location and answer.location.page else 'Unknown' }}
+                                                    {% if answer.location and (answer.location.bounding_box or answer.location.text_spans) and exam_file %}
+                                                    <button class="btn btn-sm btn-primary ms-2 goto-answer"
+                                                            data-page="{{ answer.location.page }}"
+                                                            data-question="{{ answer.question_number }}">
+                                                        <i class="fas fa-search"></i> View on PDF
+                                                    </button>
+                                                    {% endif %}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- PDF Tab -->
+                    {% if exam_file %}
+                    <div class="tab-pane fade" id="pdf-tab-pane" role="tabpanel" tabindex="0">
+                        <div class="pdf-container">
+                            <div class="toolbar">
+                                <div class="btn-group">
+                                    <button id="show-errors-only" class="btn btn-sm btn-danger btn-view-mode active">
+                                        <i class="fas fa-exclamation-circle"></i> Show Errors Only
+                                    </button>
+                                    <button id="show-all-answers" class="btn btn-sm btn-success btn-view-mode">
+                                        <i class="fas fa-highlighter"></i> Show All Answers
+                                    </button>
+                                    <button id="show-original" class="btn btn-sm btn-secondary btn-view-mode">
+                                        <i class="fas fa-file-pdf"></i> Show Original
+                                    </button>
+                                </div>
+
+                                <div class="ms-auto">
+                                    <div class="dropdown d-inline-block">
+                                        <button class="btn btn-sm btn-primary dropdown-toggle" type="button" id="downloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-download"></i> Download PDF
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="downloadDropdown">
+                                            <li><a class="dropdown-item" href="{{ url_for('analysis.download_highlighted_pdf', student_id=student.student_id, exam_id=exam_id, mode='errors_only') }}" target="_blank">With Errors Only</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('analysis.download_highlighted_pdf', student_id=student.student_id, exam_id=exam_id, mode='all') }}" target="_blank">With All Answers</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('analysis.original_exam_pdf', student_id=student.student_id, exam_id=exam_id) }}" target="_blank">Original PDF</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PDF Change Option -->
+                            <div class="mt-2 mb-3 text-end">
+                                <span class="text-muted me-2">Current PDF: {{ exam_file }}</span>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#changePdfCollapse" aria-expanded="false">
+                                    Change PDF
+                                </button>
+
+                                <div class="collapse mt-2" id="changePdfCollapse">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <form method="GET" action="{{ url_for('analysis.select_exam_pdf', student_id=student.student_id, exam_id=exam_id) }}" class="row g-2 align-items-center">
+                                                <div class="col-auto">
+                                                    <select class="form-select form-select-sm" id="pdf_file" name="pdf_file" required>
+                                                        <option value="">-- Select PDF --</option>
+                                                        {% for pdf in all_pdfs %}
+                                                        <option value="{{ pdf }}" {% if pdf == exam_file %}selected{% endif %}>{{ pdf }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Iframe container to display the PDF (now with larger size) -->
+                            <div class="iframe-container">
+                                <iframe id="pdf-viewer"
+                                        src="{{ url_for('analysis.student_exam_pdf', student_id=student.student_id, exam_id=exam_id, mode='errors_only') }}"
+                                        allowfullscreen></iframe>
+                            </div>
+
+                            <div class="highlight-legend">
+                                <h6>Highlight Legend:</h6>
+                                <div class="legend-item">
+                                    <div class="legend-color incorrect"></div>
+                                    <span>Incorrect Answer</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color correct"></div>
+                                    <span>Correct Answer</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Answer filtering
+    document.getElementById('answer-filter').addEventListener('change', function() {
+        const filter = this.value;
+        const answerCards = document.querySelectorAll('.answer-card');
+
+        answerCards.forEach(card => {
+            if (filter === 'all' || card.dataset.status === filter) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    // Toggle answer details
+    document.querySelectorAll('.answer-toggle').forEach(toggle => {
+        toggle.addEventListener('click', function() {
+            const icon = this.querySelector('i');
+            if (icon.classList.contains('fa-chevron-down')) {
+                icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        });
+    });
+</script>
+
+{% if exam_file %}
+<script>
+    // Get the iframe element
+    const pdfViewer = document.getElementById('pdf-viewer');
+
+    // Button event listeners for PDF view modes
+    document.getElementById('show-errors-only').addEventListener('click', function() {
+        pdfViewer.src = "{{ url_for('analysis.student_exam_pdf', student_id=student.student_id, exam_id=exam_id, mode='errors_only') }}";
+        setActiveButton(this);
+    });
+
+    document.getElementById('show-all-answers').addEventListener('click', function() {
+        pdfViewer.src = "{{ url_for('analysis.student_exam_pdf', student_id=student.student_id, exam_id=exam_id, mode='all') }}";
+        setActiveButton(this);
+    });
+
+    document.getElementById('show-original').addEventListener('click', function() {
+        pdfViewer.src = "{{ url_for('analysis.original_exam_pdf', student_id=student.student_id, exam_id=exam_id) }}";
+        setActiveButton(this);
+    });
+
+    function setActiveButton(activeButton) {
+        // Remove active class from all buttons
+        document.querySelectorAll('.btn-view-mode').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Add active class to clicked button
+        activeButton.classList.add('active');
+    }
+
+    // Go to specific answer on PDF tab
+    document.querySelectorAll('.goto-answer').forEach(button => {
+        button.addEventListener('click', function() {
+            const page = parseInt(this.dataset.page);
+            const questionNum = this.dataset.question;
+
+            console.log('Going to question', questionNum, 'on page', page);
+
+            // Switch to PDF tab and load errors-only view to ensure highlighting is visible
+            document.getElementById('pdf-tab').click();
+            pdfViewer.src = "{{ url_for('analysis.student_exam_pdf', student_id=student.student_id, exam_id=exam_id, mode='errors_only') }}";
+            setActiveButton(document.getElementById('show-errors-only'));
+
+            // You could potentially add more logic here to scroll to the right page in the PDF
+            // This would require PDF.js integration or browser PDF viewer capabilities
+        });
+    });
+</script>
+{% endif %}
+{% endblock %}

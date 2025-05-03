@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}ExamInsight - {{ exam_id }} Detailed Report{% endblock %}
+
+{% block extra_css %}
+<style>
+    .difficulty-easy { color: #28a745; }
+    .difficulty-medium { color: #ffc107; }
+    .difficulty-hard { color: #dc3545; }
+
+    .error-card {
+        margin-bottom: 1.5rem;
+        border-left: 5px solid #6c757d;
+    }
+    .error-card.easy { border-left-color: #28a745; }
+    .error-card.medium { border-left-color: #ffc107; }
+    .error-card.hard { border-left-color: #dc3545; }
+
+    .error-type-badge {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.5rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h2>{{ exam_id }} Detailed Report</h2>
+        <div>
+            <a href="{{ url_for('analysis.results', exam_id=exam_id) }}" class="btn btn-primary">View Results</a>
+            <a href="{{ url_for('analysis.list') }}" class="btn btn-secondary ms-2">Back to List</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Exam Overview</h4>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Exam ID:</dt>
+                            <dd class="col-sm-8">{{ exam_id }}</dd>
+
+                            <dt class="col-sm-4">Total Questions:</dt>
+                            <dd class="col-sm-8">{{ report|length }}</dd>
+
+                            <dt class="col-sm-4">Difficulty Profile:</dt>
+                            <dt class="col-sm-4">Difficulty Profile:</dt>
+                            <dd class="col-sm-8">
+                                <span class="difficulty-easy">Easy: {{ difficulty_profile.easy_count }}</span> |
+                                <span class="difficulty-medium">Medium: {{ difficulty_profile.medium_count }}</span> |
+                                <span class="difficulty-hard">Hard: {{ difficulty_profile.hard_count }}</span>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-info">
+                    <h5>How to use this report</h5>
+                    <p>
+                        This detailed report analyzes each question on the exam, highlighting:
+                    </p>
+                    <ul>
+                        <li>Question difficulty levels</li>
+                        <li>Common error patterns</li>
+                        <li>Topics for additional instruction</li>
+                    </ul>
+                    <p>
+                        Use this information to identify knowledge gaps and improve future teaching.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="mb-4">Question-by-Question Analysis</h3>
+
+        {% for q_num, q_data in report.items() %}
+        <div class="card error-card {{ q_data.difficulty_level }}" id="question-{{ q_num }}">
+            <div class="card-header">
+                <h4>
+                    Question {{ q_num }}
+                    <span class="badge
+                          {% if q_data.difficulty_level == 'easy' %}bg-success
+                          {% elif q_data.difficulty_level == 'medium' %}bg-warning
+                          {% else %}bg-danger{% endif %}">
+                        {{ q_data.difficulty_level|capitalize }} ({{ q_data.difficulty|round(2) }})
+                    </span>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h5>Correct Answer</h5>
+                        <p>{{ q_data.correct_answer }}</p>
+
+                        <h5>Student Performance</h5>
+                        <p>
+                            <strong>{{ q_data.student_count }}</strong> students answered incorrectly
+                        </p>
+                    </div>
+                    <div class="col-md-8">
+                        <h5>Error Patterns</h5>
+                        {% if q_data.error_patterns %}
+                            <div class="mb-3">
+                                {% for error_type, count in q_data.error_patterns.items() %}
+                                    <span class="badge bg-secondary error-type-badge">
+                                        {{ error_type }}: {{ count }} student{{ 's' if count > 1 else '' }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6>Teaching Recommendations</h6>
+                                    <ul>
+                                        {% if q_data.difficulty_level == 'hard' %}
+                                            <li>This is a challenging question - consider providing more examples and practice exercises</li>
+                                        {% endif %}
+
+                                        {% for error_type, count in q_data.error_patterns.items() %}
+                                            {% if error_type == 'conceptual_misunderstanding' %}
+                                                <li>Review core concepts related to this question</li>
+                                            {% elif error_type == 'calculation_error' %}
+                                                <li>Provide step-by-step calculation examples</li>
+                                            {% elif error_type == 'misinterpretation' %}
+                                                <li>Clarify question wording and expectations</li>
+                                            {% elif error_type == 'incomplete_answer' %}
+                                                <li>Emphasize the importance of complete answers</li>
+                                            {% else %}
+                                                <li>Address recurring errors in "{{ error_type }}"</li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No specific error patterns identified.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
