@@ -57,11 +57,9 @@ Smart Assess integrates advanced AI models to:
 ## Running the Project
 Start the Flask development server:
 ```bash
-export FLASK_APP=run.py
-export FLASK_ENV=development
-flask run
+python run.py
 ```
-Open your browser at `[http://localhost:5000](http://127.0.0.1:5000/)`.
+Open your browser at `http://127.0.0.1:5000/`.
 
 ## Usage Guide
 1. **Home Page**  
