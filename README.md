@@ -73,6 +73,11 @@ Open your browser at `[http://localhost:5000](http://127.0.0.1:5000/)`.
    - Review error-pattern clusters and individual student reports.  
    - Download detailed PDF reports with highlighted corrections and recommended subjects to improve.  
 
+## Sample Data
+We include some sample exam and answer key files to help you get started quickly. You can find these in the following directories:
+- data/exams/: Sample exam PDF files.
+- data/answers/: Corresponding sample answer key files.
+
 ## Project Structure
 ```
 Smart Assess/
