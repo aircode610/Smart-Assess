@@ -74,7 +74,7 @@ Open your browser at `[http://localhost:5000](http://127.0.0.1:5000/)`.
    - Download detailed PDF reports with highlighted corrections and recommended subjects to improve.  
 
 ## Sample Data
-We include some sample exam and answer key files to help you get started quickly. You can find these in the following directories:
+We include some sample exam and answer key files (English & Math) to help you get started quickly. You can find these files already uploaded:
 - data/exams/: Sample exam PDF files.
 - data/answers/: Corresponding sample answer key files.
 
