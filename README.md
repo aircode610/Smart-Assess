@@ -140,4 +140,4 @@ Smart Assess/
 - **PyPDF2** (or similar) for PDF highlighting  
 
 ## Link to Video
-[▶️ Smart Assess Demo Video]([https://youtu.be/your-demo-video-link](https://www.youtube.com/watch?v=oUZL57hnhbA))
+[▶️ Smart Assess Demo Video](https://www.youtube.com/watch?v=oUZL57hnhbA)
